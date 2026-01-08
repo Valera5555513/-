@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мои задачи — расширенная версия</title>
+
+<style>
+*{box-sizing:border-box;font-family:-apple-system,system-ui}
+body{margin:0;transition:.35s}
+
+/* БАЗОВЫЕ ПЕРЕМЕННЫЕ */
+:root{
+ --bg:#eef1f5;
+ --panel:rgba(255,255,255,.85);
+ --text:#1c1c1e;
+ --accent:#007aff;
+ --shadow:0 20px 38px rgba(0,0,0,.1);
+ --blur:16px;
+ --card:rgba(255,255,255,.65);
+ --done:rgba(52,199,89,.35);
+}
+
+/* ТЕМНАЯ */
+body.dark{
+ --bg:#111113;
+ --panel:rgba(30,30,32,.85);
+ --text:#f2f2f7;
+ --card:rgba(55,55,60,.6);
+ --shadow:0 20px 38px rgba(0,0,0,.6);
+}
+
+/* БЕЖЕВАЯ */
+body.beige{
+ --bg:#e7dfd3;
+ --panel:rgba(255,255,255,.78);
+ --text:#2e2419;
+}
+
+/* СЕКРЕТНАЯ */
+body.secret{
+ --bg:#1f2024;
+ --panel:rgba(60,60,65,.42);
+ --text:#ffffff;
+ --accent:#9aa0a6;
+ --card:rgba(120,120,120,.35);
+ --done:rgba(200,255,200,.38);
+}
+
+/* ЖИДКОЕ СТЕКЛО */
+body.glass{
+ --panel:rgba(255,255,255,.32);
+ --card:rgba(255,255,255,.25);
+ --blur:28px;
+}
+
+/* ОФОРМЛЕНИЕ */
+header{
+ position:fixed;top:0;left:0;right:0;
+ background:var(--panel);
+ backdrop-filter:blur(var(--blur));
+ padding:14px;
+ box-shadow:var(--shadow);
+ z-index:10;
+ color:var(--text);
+}
+.app{padding:80px 14px 80px;background:var(--bg);min-height:100vh;}
+.section{
+ background:var(--panel);
+ backdrop-filter:blur(var(--blur));
+ border-radius:16px;
+ padding:14px;
+ margin-bottom:16px;
+ box-shadow:var(--shadow);
+ color:var(--text);
+}
+
+.card{
+ background:var(--card);
+ border-radius:14px;
+ padding:10px;
+ margin-top:8px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ color:var(--text);
+ cursor:pointer;
+}
+.card.done{background:var(--done)}
+
+input{
+ border-radius:12px;
+ border:1px solid #ccc;
+ padding:8px 10px;
+ width:100%;
+}
+
+button{cursor:pointer;border:none;border-radius:12px;padding:8px 14px;background:var(--accent);color:white;}
+
+/* НАВИГАЦИЯ */
+nav{
+ position:fixed;
+ bottom:0;left:0;right:0;
+ background:var(--panel);
+ backdrop-filter:blur(var(--blur));
+ padding:10px;
+ display:flex;
+ justify-content:space-around;
+ box-shadow:var(--shadow);
+}
+nav button{
+ padding:10px 14px;
+ border-radius:14px;
+ border:none;
+ background:#e5e5ea66;
+ color:var(--text);
+}
+nav button.active{
+ background:var(--accent);
+ color:white;
+}
+</style>
+</head>
+
+<body>
+
+<header><h2 id="title">Мои задачи</h2></header>
+
+<div class="app">
+
+ <!-- задачи -->
+ <div id="tab_tasks" class="tab">
+  <div class="section">
+   <h3>Задачи</h3>
+   <div class="card">
+    <input id="newTask" placeholder="Новая задача">
+    <button onclick="addTask()">Добавить</button>
+   </div>
+   <div id="tasks"></div>
+  </div>
+ </div>
+
+ <!-- папки -->
+ <div id="tab_folders" class="tab" style="display:none">
+  <div class="section">
+   <h3>Папки</h3>
+   <div class="card">
+    <input id="newFolder" placeholder="Новая папка">
+    <button onclick="addFolder()">Создать</button>
+   </div>
+   <div id="folders"></div>
+  </div>
+ </div>
+
+ <!-- корзина -->
+ <div id="tab_trash" class="tab" style="display:none">
+  <div class="section">
+   <h3>Корзина</h3>
+   <button onclick="clearTrash()">Очистить корзину</button>
+   <div id="trash"></div>
+  </div>
+ </div>
+
+ <!-- ИИ чат (простой) -->
+ <div id="tab_chat" class="tab" style="display:none">
+  <div class="section">
+   <h3>ИИ чат</h3>
+   <div id="chatBox"></div>
+   <div class="card">
+    <input id="msg" placeholder="Сообщение...">
+    <button onclick="send()">Отправить</button>
+   </div>
+  </div>
+ </div>
+
+ <!-- профиль -->
+ <div id="tab_profile" class="tab" style="display:none">
+  <div class="section" id="profileBox"></div>
+ </div>
+
+</div>
+
+<nav>
+ <button id="btn_tasks" onclick="openTab('tasks')">Задачи</button>
+ <button id="btn_folders" onclick="openTab('folders')">Папки</button>
+ <button id="btn_trash" onclick="openTab('trash')">Корзина</button>
+ <button id="btn_chat" onclick="openTab('chat')">ИИ</button>
+ <button id="btn_profile" onclick="openTab('profile')">Профиль</button>
+</nav>
+
+<script>
+/* СОХРАНЕНИЕ */
+let data = JSON.parse(localStorage.appData || '{"user":"","theme":"light","glass":false,"tasks":[],"folders":[],"trash":[],"chat":[]}');
+let path=[]; /* для секрета */
+let unlocked=false;
+let starsLayer=null;
+
+function save(){localStorage.appData=JSON.stringify(data);}
+
+/* ТЕМЫ */
+function applyTheme(){
+ document.body.className="";
+ if(data.theme==="dark")document.body.classList.add("dark");
+ if(data.theme==="beige")document.body.classList.add("beige");
+ if(data.theme==="secret"){document.body.classList.add("secret");makeStars();}
+ if(data.glass)document.body.classList.add("glass");
+}
+
+/* ТАБЫ */
+function openTab(name){
+ ['tasks','folders','trash','chat','profile'].forEach(t=>{
+  document.getElementById('tab_'+t).style.display=(t===name)?'block':'none';
+  document.getElementById('btn_'+t).classList.remove('active');
+ });
+ document.getElementById('btn_'+name).classList.add('active');
+ document.getElementById('title').innerText=
+  name==='tasks'?'Мои задачи':
+  name==='folders'?'Папки':
+  name==='trash'?'Корзина':
+  name==='chat'?'ИИ чат':'Профиль';
+ render();
+}
+
+/* ---------- ЗАДАЧИ ---------- */
+function addTask(){
+ if(!data.user)return alert("Войдите в профиль");
+ let v=newTask.value.trim();if(!v)return;
+ data.tasks.push({text:v,done:false});
+ newTask.value="";
+ save();render();
+}
+function toggleTask(i){
+ if(!data.user)return;
+ data.tasks[i].done=!data.tasks[i].done;
+ save();render();
+}
+function delTask(i){
+ data.trash.push(data.tasks[i].text);
+ data.tasks.splice(i,1);
+ save();render();
+}
+
+/* ---------- ПАПКИ ---------- */
+function addFolder(){
+ if(!data.user)return alert("Войдите в профиль");
+ let v=newFolder.value.trim();if(!v)return;
+ data.folders.push(v);
+ newFolder.value="";
+ save();render();
+}
+function delFolder(i){
+ data.trash.push(data.folders[i]);
+ data.folders.splice(i,1);
+ save();render();
+}
+
+/* ---------- ТРЕШ ---------- */
+function clearTrash(){data.trash=[];save();render();}
+
+/* ---------- ПРОФИЛЬ ---------- */
+function login(){
+ let v=document.getElementById("loginName").value.trim();
+ if(!v)return;
+ data.user=v;save();render();
+}
+function logout(){data.user="";save();render();}
+
+function setTheme(t){
+ if(t==="light")path=["light"];
+ else if(t==="dark"&&path[0]==="light")path.push("dark");
+ else if(t==="beige"&&path[1]==="dark"){unlocked=true;alert("✨ Секретный режим открыт!");}
+ data.theme=t;save();applyTheme();render();
+}
+
+function toggleGlass(){data.glass=!data.glass;save();applyTheme();render();}
+function enableSecret(){data.theme="secret";save();applyTheme();}
+
+/* --------- ЗВЁЗДЫ ---------- */
+function makeStars(){
+ if(starsLayer)starsLayer.remove();
+ starsLayer=document.createElement("div");
+ starsLayer.style.position="fixed";
+ starsLayer.style.inset="0";
+ starsLayer.style.pointerEvents="none";
+ document.body.appendChild(starsLayer);
+ for(let i=0;i<130;i++){
+  let s=document.createElement("div");
+  s.style.position="absolute";
+  s.style.width=s.style.height=(Math.random()*3+1)+"px";
+  s.style.background="white";
+  s.style.borderRadius="50%";
+  s.style.left=Math.random()*100+"%";
+  s.style.top=Math.random()*100+"%";
+  starsLayer.appendChild(s);
+ }
+}
+
+/* -------- ИИ ---------- */
+function tryCalc(text){
+ if(!/^[0-9+\-*/().,\s]+$/.test(text))return null;
+ try{let r=Function("return("+text.replace(/,/g,'.')+")")();if(isNaN(r))return null;return +r.toFixed(6);}catch{return null;}
+}
+function smartReply(t){let c=tryCalc(t);if(c!==null)return "Результат: "+c;return "Я понял 👍";}
+function send(){
+ let v=msg.value.trim();if(!v)return;
+ data.chat.push("Вы: "+v);
+ data.chat.push("Бот: "+smartReply(v));
+ msg.value="";save();render();
+}
+
+/* --------- РЕНДЕР ---------- */
+function render(){
+ /* задачи */
+ let t=document.getElementById("tasks");t.innerHTML="";
+ data.tasks.forEach((x,i)=>{
+  t.innerHTML+=`<div class="card ${x.done?'done':''}" onclick="toggleTask(${i})">
+   <span>${x.text}</span>
+   <button onclick="event.stopPropagation();delTask(${i})">Удалить</button>
+  </div>`;
+ });
+
+ /* папки */
+ let f=document.getElementById("folders");f.innerHTML="";
+ data.folders.forEach((x,i)=>{
+  f.innerHTML+=`<div class="card">
+   <span>${x}</span>
+   <button onclick="delFolder(${i})">Удалить</button>
+  </div>`;
+ });
+
+ /* корзина */
+ let tr=document.getElementById("trash");tr.innerHTML="";
+ data.trash.forEach(x=>tr.innerHTML+=`<div class="card">${x}</div>`);
+
+ /* чат */
+ let c=document.getElementById("chatBox");if(c){c.innerHTML="";data.chat.forEach(m=>c.innerHTML+=`<div class="card">${m}</div>`);}
+
+ /* профиль */
+ let p=document.getElementById("profileBox");
+ if(!data.user){
+  p.innerHTML=`
+   <h3>Вход</h3>
+   <input id="loginName" placeholder="Ваше имя"><br><br>
+   <button onclick="login()">Войти</button>`;
+ } else {
+  p.innerHTML=`
+   <h3>Профиль</h3>
+   <div class="card">Привет, <b>${data.user}</b></div>
+   <div class="card"><button onclick="logout()">Выйти</button></div>
+   <div class="card">
+    <button onclick="setTheme('light')">🌕 Светлая</button>
+    <button onclick="setTheme('dark')">🌑 Тёмная</button>
+    <button onclick="setTheme('beige')">🟫 Бежевая</button>
+   </div>
+   <div class="card"><button onclick="toggleGlass()">${data.glass?'Отключить':'Включить'} жидкое стекло 🫧</button></div>
+   ${unlocked?'<div class="card"><button onclick="enableSecret()">✨ Секретный режим</button></div>':''}
+  `;
+ }
+}
+
+applyTheme();
+openTab("tasks");
+</script>
+
+</body>
+</html>
